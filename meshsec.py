@@ -1,6 +1,5 @@
 #!/usr/bin/env python3 
 
-import sys
 import codecs
 from CryptoPlus.Cipher import python_AES
 from Crypto.Cipher import AES
@@ -24,7 +23,14 @@ def aes_cmac(k, m):
     c = python_AES.new(k, python_AES.MODE_CMAC)
     return c.encrypt(m)
 
-def aes_ccm(k, n, m, a):
+
+"""! Notes:
+    Network Nonce: 0x00 for Network layer, 0x01 for App layer
+    example b"00800000011201000012345678"
+    DST: (16 bits) Destination address 
+    TransportPDU: (8-128 bits) Transport Protocol Data Unit 
+"""
+def aes_ccm_encypt(k, n, m, a):
     """ 
     @param k is 128-bit key 
     @param n is 104-bit nonce 
@@ -32,16 +38,52 @@ def aes_ccm(k, n, m, a):
              and authenticated (plaintext) 
     @param a is the variable lenght data to be authenticated (additional data) 
 
-    @return list of ciphertext is the variable length data after it has been encrypted
-            and mic (Message Authenctication Code) is the message integrity check value of m and a. 
+    @return EncDST + EncTransportPDU
     """
-    nonce = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    #nonce = b"\x00\x00\x00\x00\x00\x00\x00"
-    c = AES.new(k, AES.MODE_CCM, nonce=nonce, assoc_len=a)
-    ret = c.encrypt(n)
-    print(Fore.GREEN + f"test: {codecs.encode(ret, 'hex')}")
-    return []
+    c = AES.new(k, AES.MODE_CCM, nonce=n)
+    ret = c.encrypt(m)
+    print(Fore.GREEN + f"EncDST + EncTransportPDU: {codecs.encode(ret, 'hex')}")
+    return ret
 
+
+def aes_ccm_decrypt(k, n, m, a):
+    """ 
+    @param k is 128-bit key 
+    @param n is 104-bit nonce 
+    @param m is the variable lenght data to be encrypted
+             and authenticated (plaintext) 
+    @param a is the variable lenght data to be authenticated (additional data) 
+    """
+    c = AES.new(k, AES.MODE_CCM, nonce=n)
+    ret = c.decrypt(m)
+    print(Fore.GREEN + f"DST + TransportPDU: {codecs.encode(ret, 'hex')}")
+    return [ret[:2], ret[2:]]
+
+
+def e_decrypt(key, plaintext):
+    """! Security function e 
+
+    Security function e generates 128-bit encryptedData from 
+    a 128-bit key and 128-bit plaintextData using the 
+    AES-128-bit block cypher
+
+    """
+    c = AES.new(key, AES.MODE_ECB)
+    ret = c.decrypt(plaintext)
+    return ret
+
+
+def defuscate(encDST, encTransPDU, netMIC, ivindex, priv_key):
+    """(CTL, TTL, SEQ, SRC)
+    """
+    priv_random = (encDST + encTransPDU + netMIC)[0:6]
+    priv_plaintext = b"\x00\x00\x00\x00\x00" + ivindex + priv_random
+    print(priv_plaintext)
+    print(codecs.encode(priv_plaintext, 'hex'))
+    print(f"key: {codecs.encode(priv_key, 'hex')}")
+    ret = e_decrypt(priv_key, priv_plaintext)
+    print(ret)
+    print(codecs.encode(ret, 'hex'))
 
 
 def gen_k2(N):
@@ -84,18 +126,10 @@ def gen_k3(N):
     print(Fore.MAGENTA + f"T: {codecs.encode(T, 'hex')}")
     k3 = aes_cmac(T, "id64".encode() + b"\x01")
     print(Fore.MAGENTA + f"k3: {codecs.encode(k3, 'hex')}")
-    #print(int.from_bytes(k3, byteorder='big'))
-    #NetworkID = hex((int(codecs.encode(k3, 'hex'), 16))%2**263)
     NetworkID = hex((int.from_bytes(k3,  byteorder="big"))%2**64)
     print(Fore.MAGENTA + f"NetworkID: {NetworkID}")
-    #print(Fore.MAGENTA + f"NetworkID: {codecs.encode(NetworkID, 'hex')}")
     return NetworkID
 
-"""! Notes:
-    Network Nonce: 0x00 for Network layer, 0x01 for App layer
-    DST: (16 bits) Destination address 
-    TransportPDU: (8-128 bits) Transport Protocol Data Unit 
-"""
 
 def gen_salt(msg):
     """! s1 SALT generation function 
@@ -106,27 +140,6 @@ def gen_salt(msg):
     """
     key = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     ret = aes_cmac(key, msg.encode())
+    print(ret)
     print(Fore.CYAN + f"SALT: {codecs.encode(ret, 'hex')}")
     return ret
-
-if __name__ == "__main__":
-    n = NETKEY
-    #n = b'14BAA72000D72457D562BB314758E747'
-    #n = b"7dd7364cd842ad18c17c2b820c84c3d6" 
-    #n = b"14BAA72000D72457D562BB314758E747"
-    if len(sys.argv) > 1:
-        n = sys.argv[1]
-    a = gen_k2(n)
-    if (a):
-        print(Fore.GREEN + f"EncyptionKey: {codecs.encode(a[0], 'hex')}")
-        print(Fore.GREEN + f"PrivacyKey: {codecs.encode(a[1], 'hex')}")
-        print(Fore.GREEN + f"NID: {a[2]}")
-        b = gen_k3(n)
-        # test = DST + TransportPDU
-        #test = b"1952b25bf885edae4dc4359715a395689eb151"
-        test = b"fffd034b50057e400000010000"
-        aes_ccm(b'0953fa93e7caac9638f58820220a398e',test, b'\x00',0)
-        #test = codecs.decode(test, 'hex')
-        #test2 = aes_cmac_decrypt(a[0], test)
-        #print(Fore.GREEN + f"PrivacyKey: {codecs.encode(test2, 'hex')}")
-
