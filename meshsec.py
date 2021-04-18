@@ -80,20 +80,37 @@ def defuscate(encDSTPDU, netMIC, ivindex, privacyKey, obfuscatedData):
     return [ret[0:1], ret[1:4], ret[4:]]
 
 
-def gen_k1(N):
+def gen_salt(msg):
+    """! s1 SALT generation function 
+    
+    @param msg   string 
+
+    @return output of the salt generation 
+    """
+    key = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    ret = aes_cmac(key, msg.encode())
+    blog(f"SALT: {codecs.encode(ret, 'hex')}", "SALT")
+    return ret
+
+
+def gen_k1(N, salt, P):
     """! The k1 function 
     
     The k1 function is used to convert some input key material into some
     output key material that uses two inputs, known as salt and info
 
     @param N    NetKey
+    @param SALT 
+    @param P    0 or more bytes
 
-    @return List of EncryptionKey, PrivacyKey and NID
+    @return  
     """
-    pass
+    T = aes_cmac(salt, N)
+    ret = aes_cmac(T, P)
+    return ret
 
 
-def gen_k2(N):
+def gen_k2(N, P=b'\x00'):
     """! The k2 function (master) 
     
     Used to convert the master security credentials 
@@ -101,10 +118,10 @@ def gen_k2(N):
     NID, EncryptionKey and PrivacyKey
 
     @param N    NetKey
+    @param P    0 or more bytes
 
     @return List of EncryptionKey, PrivacyKey and NID
     """
-    P = b"\x00"
     salt = gen_salt("smk2")
     T = aes_cmac(salt, codecs.decode(N, 'hex'))
     T0 = b""
@@ -132,19 +149,24 @@ def gen_k3(N):
     salt = gen_salt("smk3")
     T = aes_cmac(salt, codecs.decode(N, 'hex'))
     k3 = aes_cmac(T, "id64".encode() + b"\x01")
-    NetworkID = hex(((int.from_bytes(k3, byteorder="big")%2**64))).encode()
+    NetworkID = hex((int.from_bytes(k3, byteorder="big")%2**64))[2:].encode()
     blog(f"NetworkID: {NetworkID}", "SUCC")
     return NetworkID
 
 
-def gen_salt(msg):
-    """! s1 SALT generation function 
+def gen_k4(N):
+    """! The k4 function 
     
-    @param msg   string 
+    Used to generate an AID from an application key 
 
-    @return output of the salt generation 
+    @param N    Appkey 
+
+    @return Application keys AID 
     """
-    key = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    ret = aes_cmac(key, msg.encode())
-    blog(f"SALT: {codecs.encode(ret, 'hex')}", "SALT")
-    return ret
+    salt = gen_salt("smk4")
+    T = aes_cmac(salt, N)
+    k4 = aes_cmac(T, "id6".encode() + b"\x01")
+    k4 = hex(((int.from_bytes(k4, byteorder="big")%2**6)))[2:].encode()
+    blog(f"k4: {k4}", "SUCC")
+    return k4 
+
