@@ -33,17 +33,20 @@ if __name__ == "__main__":
     enc = b""
     nonce = b""
     netMIC = b"" # usually its Access message, so lenght is 4 (and CTL = 0)
+    ivindex = b""
     if len(sys.argv) > 3:
         n = sys.argv[1]
         # c6ebdc7d08351c2f8d3b848db0 9bba032615d4
         enc = sys.argv[2]
         nonce = sys.argv[3]
-        if len(sys.argv) > 4: 
+        if len(sys.argv) > 6: 
             netMIC = sys.argv[4]
+            ivindex = sys.argv[5]
+            obfuscated = sys.argv[6]
     else:
         print("Usage:")
         print("<NetKey> <EncDST || EncTransportPDU> <NetworkNonce>")
-        print("<NetKey> <EncDST || EncTransportPDU> <NetworkNonce> <NetMIC>")
+        print("<NetKey> <EncDST || EncTransportPDU> <NetworkNonce> <NetMIC> <IVindex>")
         sys.exit()
     a = ms.gen_k2(n)
     if (a):
@@ -56,4 +59,4 @@ if __name__ == "__main__":
         dc = ms.aes_ccm_decrypt(a[0], codecs.decode(nonce, 'hex'), codecs.decode(enc, 'hex'), 0)
         print(codecs.encode(dc[0], 'hex'), codecs.encode(dc[1], 'hex'))
         if (len(netMIC) > 2):
-            ms.defuscate(dc[0], dc[1], codecs.decode(netMIC, 'hex'), b"\x00\x00\x00\x00", a[1])
+            ms.defuscate(codecs.decode(enc, 'hex'), codecs.decode(netMIC, 'hex'), codecs.decode(ivindex, 'hex'), a[1], codecs.decode(obfuscated, "hex"))

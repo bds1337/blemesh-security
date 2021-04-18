@@ -4,6 +4,8 @@ import codecs
 from CryptoPlus.Cipher import python_AES
 from Crypto.Cipher import AES
 
+import byteutils
+
 import colorama
 from colorama import Fore
 
@@ -68,22 +70,50 @@ def e_decrypt(key, plaintext):
     AES-128-bit block cypher
 
     """
-    c = AES.new(key, AES.MODE_ECB)
+    print(f"key {key}\nplaintext {plaintext}")
+    print(f"len key: {len(list(key))}\nlen plaintext {len(list(plaintext))}")
+    c = python_AES.new(key)
+    #c = AES.new(key, AES.MODE_ECB)
     ret = c.decrypt(plaintext)
+    print(f"\ndec {codecs.encode(ret, 'hex')}")
+    ret = c.encrypt(plaintext)
+    print(f"enc {codecs.encode(ret, 'hex')}")
     return ret
 
 
-def defuscate(encDST, encTransPDU, netMIC, ivindex, priv_key):
+def defuscate(encDSTPDU, netMIC, ivindex, priv_key, obfuscated):
     """(CTL, TTL, SEQ, SRC)
     """
-    priv_random = (encDST + encTransPDU + netMIC)[0:6]
+    priv_random = (encDSTPDU + netMIC)[:7]
+    print(f"\nencDSTPDU {encDSTPDU}")
+    print(f"ivindex {ivindex}")
+    print(f"priv_key {priv_key}")
+    print(f"netMIC {netMIC}")
+    print(f"netMIC {len(list(netMIC))}")
+    print(f"priv_random {len(list(priv_random))}\n")
+    # 5 + 4 + 7 = 16
     priv_plaintext = b"\x00\x00\x00\x00\x00" + ivindex + priv_random
     print(priv_plaintext)
     print(codecs.encode(priv_plaintext, 'hex'))
     print(f"key: {codecs.encode(priv_key, 'hex')}")
-    ret = e_decrypt(priv_key, priv_plaintext)
+    pecb = e_decrypt(priv_key, priv_plaintext)[:6]
+    print(pecb)
+    print(codecs.encode(pecb, 'hex'))
+    print("\n\n")
+    #obfuscated = codecs.decode("000000000012345678b5e5bfdacbaf6c", "hex")
+    #obfuscated = codecs.decode("800000011201", "hex")
+    #ret = byteutils.bxor(codecs.encode(obfuscated, 'hex'), codecs.encode(pecb, 'hex'))
+    #ret = byteutils.bxor(codecs.encode(obfuscated, 'hex'), pecb)
+    print(obfuscated)
+    print(pecb)
+    temp = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    #print(temp+pecb)
+    #print(len(list(temp+pecb)))
+    ret = byteutils.bxor(obfuscated, pecb)
     print(ret)
     print(codecs.encode(ret, 'hex'))
+    return ret
+
 
 
 def gen_k2(N):
