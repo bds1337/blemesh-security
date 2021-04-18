@@ -47,7 +47,6 @@ def aes_ccm_decrypt(k, n, m, a):
     """
     c = AES.new(k, AES.MODE_CCM, nonce=n)
     ret = c.decrypt(m)
-    blog(f"DST + TransportPDU: {codecs.encode(ret, 'hex')}", "SUCC")
     return [ret[:2], ret[2:]]
 
 
@@ -81,6 +80,19 @@ def defuscate(encDSTPDU, netMIC, ivindex, privacyKey, obfuscatedData):
     return [ret[0:1], ret[1:4], ret[4:]]
 
 
+def gen_k1(N):
+    """! The k1 function 
+    
+    The k1 function is used to convert some input key material into some
+    output key material that uses two inputs, known as salt and info
+
+    @param N    NetKey
+
+    @return List of EncryptionKey, PrivacyKey and NID
+    """
+    pass
+
+
 def gen_k2(N):
     """! The k2 function (master) 
     
@@ -102,7 +114,9 @@ def gen_k2(N):
     blog(f"T2: {codecs.encode(T2, 'hex')}", "PROC")
     T3 = aes_cmac(T, T2 + P + b"\x03")
     blog(f"T3: {codecs.encode(T3, 'hex')}", "PROC")
-    nid = hex((int(codecs.encode(T1 + T2 + T3, 'hex'), 16))%2**263)
+    # 0x680953fa93e7caac9638f58820220a398e8b84eedec100067d670971dd2aa700cf
+    #nid = (hex(((int(codecs.encode(T1 + T2 + T3, 'hex'), 16))%2**263))).encode()
+    nid = (hex(((int(codecs.encode(T1 + T2 + T3, 'hex'), 16))%2**263))[2:4]).encode()
     return [T2, T3, nid]
 
 
@@ -118,7 +132,7 @@ def gen_k3(N):
     salt = gen_salt("smk3")
     T = aes_cmac(salt, codecs.decode(N, 'hex'))
     k3 = aes_cmac(T, "id64".encode() + b"\x01")
-    NetworkID = hex((int.from_bytes(k3,  byteorder="big"))%2**64)
+    NetworkID = hex(((int.from_bytes(k3, byteorder="big")%2**64))).encode()
     blog(f"NetworkID: {NetworkID}", "SUCC")
     return NetworkID
 
