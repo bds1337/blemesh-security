@@ -3,11 +3,6 @@
 import sys
 import codecs
 
-import colorama
-from colorama import Fore
-
-colorama.init(autoreset=True)
-
 APPKEY = "3216d1509884b533248541792b877f98"
 NETKEY = "f7a2a44f8e8a8029064f173ddc1e2b00"
 DEVKEY = "37c612c4a2d337cb7b98355531b3617f"
@@ -50,13 +45,12 @@ if __name__ == "__main__":
         sys.exit()
     a = ms.gen_k2(n)
     if (a):
-        print(Fore.GREEN + f"EncyptionKey: {codecs.encode(a[0], 'hex')}")
-        print(Fore.GREEN + f"PrivacyKey: {codecs.encode(a[1], 'hex')}")
-        print(Fore.GREEN + f"NID: {a[2]}")
+        print(f"EncyptionKey: {codecs.encode(a[0], 'hex')}")
+        print(f"PrivacyKey: {codecs.encode(a[1], 'hex')}")
+        print(f"NID: {a[2]}")
         b = ms.gen_k3(n)
         encTest = b"\xb5\xe5\xbf\xda\xcb\xaf\x6c\xb7\xfb\x6b\xff\x87\x1f"
         networkNonce = b'\x00\x80\x00\x00\x01\x12\x01\x00\x00\x12\x34\x56\x78'
         dc = ms.aes_ccm_decrypt(a[0], codecs.decode(nonce, 'hex'), codecs.decode(enc, 'hex'), 0)
-        print(codecs.encode(dc[0], 'hex'), codecs.encode(dc[1], 'hex'))
         if (len(netMIC) > 2):
             ms.defuscate(codecs.decode(enc, 'hex'), codecs.decode(netMIC, 'hex'), codecs.decode(ivindex, 'hex'), a[1], codecs.decode(obfuscated, "hex"))
